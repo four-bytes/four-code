@@ -2,6 +2,7 @@
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use four_code_core::Editor;
+use four_code_highlight::{global_highlighter, HighlightCache};
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
@@ -10,6 +11,7 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::io;
+use std::path::Path;
 use thiserror::Error;
 
 use crate::EditorWidget;
@@ -28,6 +30,9 @@ pub struct App {
     /// Editor instance
     editor: Editor,
 
+    /// Syntax highlight cache
+    highlight_cache: HighlightCache,
+
     /// Whether the app should quit
     should_quit: bool,
 
@@ -43,17 +48,18 @@ impl App {
     pub fn new() -> Self {
         Self {
             editor: Editor::with_content(
-                "Welcome to four-code!\n\n\
-                 A minimalist terminal IDE for PHP developers.\n\n\
-                 Keybindings:\n\
-                 - Arrow keys: Move cursor\n\
-                 - Ctrl+Q: Quit\n\
-                 - Ctrl+S: Save\n\
-                 - Home/End: Start/End of line\n\
-                 - Ctrl+Home/End: Start/End of document\n\
-                 - Page Up/Down: Scroll\n\n\
-                 Start typing to edit...\n",
+                "<?php\n\
+                 // Welcome to four-code!\n\
+                 // A minimalist terminal IDE for PHP developers.\n\n\
+                 class HelloWorld {\n\
+                     public function greet(string $name): string {\n\
+                         return \"Hello, \" . $name . \"!\";\n\
+                     }\n\
+                 }\n\n\
+                 $greeter = new HelloWorld();\n\
+                 echo $greeter->greet('World');\n",
             ),
+            highlight_cache: HighlightCache::new(global_highlighter()),
             should_quit: false,
             status: String::from("four-code v0.1.0 | Ctrl+Q: Quit | Ctrl+S: Save"),
             last_size: (0, 0),
@@ -63,9 +69,21 @@ impl App {
     /// Create app with a file
     pub fn with_file(path: &str) -> Result<Self, AppError> {
         let editor = Editor::open(path).map_err(|e| AppError::Terminal(e.to_string()))?;
-        let status = format!("Opened: {path}");
+        let mut highlight_cache = HighlightCache::new(global_highlighter());
+
+        // Detect language from file extension
+        highlight_cache.set_language_from_path(Path::new(path));
+
+        let lang_info = if let Some(lang) = highlight_cache.current_language() {
+            format!(" [{}]", lang.name())
+        } else {
+            String::new()
+        };
+
+        let status = format!("Opened: {path}{lang_info}");
         Ok(Self {
             editor,
+            highlight_cache,
             should_quit: false,
             status,
             last_size: (0, 0),
@@ -77,6 +95,12 @@ impl App {
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     ) -> Result<(), AppError> {
+        // Set PHP highlighting for the welcome screen
+        if self.editor.path().is_none() {
+            self.highlight_cache
+                .set_language(Some(four_code_highlight::Language::Php));
+        }
+
         while !self.should_quit {
             terminal.draw(|frame| self.render(frame))?;
             self.handle_events()?;
@@ -105,11 +129,17 @@ impl App {
             ])
             .split(size);
 
-        // Editor title with filename and modified indicator
-        let title = if self.editor.is_modified() {
-            format!(" {} [+] ", self.editor.filename())
+        // Editor title with filename, language, and modified indicator
+        let lang_suffix = if let Some(lang) = self.highlight_cache.current_language() {
+            format!(" [{}]", lang.name())
         } else {
-            format!(" {} ", self.editor.filename())
+            String::new()
+        };
+
+        let title = if self.editor.is_modified() {
+            format!(" {} [+]{} ", self.editor.filename(), lang_suffix)
+        } else {
+            format!(" {}{} ", self.editor.filename(), lang_suffix)
         };
 
         let editor_block = Block::default()
@@ -121,12 +151,13 @@ impl App {
         let inner = editor_block.inner(chunks[0]);
         frame.render_widget(editor_block, chunks[0]);
 
-        // Render editor content
-        let editor_widget = EditorWidget::new(&self.editor);
+        // Render editor content with syntax highlighting
+        let editor_widget = EditorWidget::new(&self.editor, &mut self.highlight_cache);
         frame.render_widget(editor_widget, inner);
 
-        // Set cursor position
-        let cursor_x = inner.x + self.editor.cursor.position.column as u16 + 4; // +4 for line numbers
+        // Set cursor position (account for line numbers)
+        let line_num_width = self.editor.buffer.len_lines().to_string().len().max(3) + 1;
+        let cursor_x = inner.x + self.editor.cursor.position.column as u16 + line_num_width as u16;
         let cursor_y =
             inner.y + (self.editor.cursor.position.line - self.editor.viewport.top_line) as u16;
 
@@ -159,6 +190,9 @@ impl App {
 
     /// Handle a key event
     fn handle_key(&mut self, key: KeyEvent) {
+        // Track if we need to invalidate highlighting
+        let line_before = self.editor.cursor.position.line;
+
         match (key.modifiers, key.code) {
             // === Application Commands ===
 
@@ -201,6 +235,7 @@ impl App {
                     match four_code_clipboard::cut(&text) {
                         Ok(()) => {
                             self.editor.delete_selection();
+                            self.highlight_cache.invalidate_from(line_before);
                             self.status = format!("Cut {len} chars");
                         }
                         Err(e) => self.status = format!("Cut failed: {e}"),
@@ -213,6 +248,7 @@ impl App {
                 Ok(text) => {
                     let len = text.len();
                     self.editor.replace_selection(&text);
+                    self.highlight_cache.invalidate_from(line_before);
                     self.status = format!("Pasted {len} chars");
                 }
                 Err(e) => self.status = format!("Paste failed: {e}"),
@@ -298,6 +334,7 @@ impl App {
             (KeyModifiers::NONE, KeyCode::Enter) => {
                 self.editor.delete_selection();
                 self.editor.insert_newline();
+                self.highlight_cache.invalidate_from(line_before);
             }
 
             // Backspace (delete selection or char before)
@@ -305,6 +342,8 @@ impl App {
                 if !self.editor.delete_selection() {
                     self.editor.backspace();
                 }
+                self.highlight_cache
+                    .invalidate_from(self.editor.cursor.position.line.saturating_sub(1));
             }
 
             // Delete (delete selection or char at cursor)
@@ -312,17 +351,21 @@ impl App {
                 if !self.editor.delete_selection() {
                     self.editor.delete();
                 }
+                self.highlight_cache.invalidate_from(line_before);
             }
 
             // Tab
             (KeyModifiers::NONE, KeyCode::Tab) => {
                 self.editor.delete_selection();
                 self.editor.insert_str("    ");
+                self.highlight_cache.invalidate_line(line_before);
             }
 
             // Regular character input (replace selection)
             (KeyModifiers::NONE | KeyModifiers::SHIFT, KeyCode::Char(c)) => {
                 self.editor.replace_selection(&c.to_string());
+                self.highlight_cache
+                    .invalidate_line(self.editor.cursor.position.line);
             }
 
             _ => {}

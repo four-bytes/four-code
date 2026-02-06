@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-02-06 - Syntax Highlighting with tree-sitter
+- Added four-code-highlight crate with tree-sitter integration
+- Upgraded tree-sitter from 0.24 to 0.26 (supports language version 15)
+- Implemented highlighting for 11 languages:
+  - PHP (primary), JavaScript, TypeScript, JSON, HTML, CSS
+  - YAML, TOML, Bash, Markdown, Rust
+- Language auto-detection from file extension and shebang
+- Highlight caching per-line for performance
+- One Dark inspired color scheme
+- Integrated highlighting into EditorWidget
+- 10 new tests for highlighting module
+- Release binary size: 12MB (with all grammar parsers)
+
 ### 2026-02-06 - Working Editor Prototype
 - Implemented Cargo workspace with 3 crates
 - four-code-core: Buffer (ropey), Cursor with selection, 9 unit tests
