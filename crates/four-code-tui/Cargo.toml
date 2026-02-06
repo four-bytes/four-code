@@ -8,6 +8,7 @@ description = "Terminal UI for four-code"
 
 [dependencies]
 four-code-core.workspace = true
+four-code-clipboard.workspace = true
 
 ratatui.workspace = true
 crossterm.workspace = true

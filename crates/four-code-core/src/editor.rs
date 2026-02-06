@@ -249,6 +249,101 @@ impl Editor {
         self.insert_char('\n');
     }
 
+    // === Selection ===
+
+    /// Start or extend selection
+    pub fn start_selection(&mut self) {
+        if !self.cursor.has_selection() {
+            self.cursor.start_selection();
+        }
+    }
+
+    /// Clear selection
+    pub fn clear_selection(&mut self) {
+        self.cursor.clear_selection();
+    }
+
+    /// Move with selection (Shift+Arrow)
+    pub fn move_up_select(&mut self) {
+        self.start_selection();
+        self.move_up();
+    }
+
+    pub fn move_down_select(&mut self) {
+        self.start_selection();
+        self.move_down();
+    }
+
+    pub fn move_left_select(&mut self) {
+        self.start_selection();
+        self.move_left();
+    }
+
+    pub fn move_right_select(&mut self) {
+        self.start_selection();
+        self.move_right();
+    }
+
+    pub fn move_to_line_start_select(&mut self) {
+        self.start_selection();
+        self.move_to_line_start();
+    }
+
+    pub fn move_to_line_end_select(&mut self) {
+        self.start_selection();
+        self.move_to_line_end();
+    }
+
+    pub fn move_to_start_select(&mut self) {
+        self.start_selection();
+        self.move_to_start();
+    }
+
+    pub fn move_to_end_select(&mut self) {
+        self.start_selection();
+        self.move_to_end();
+    }
+
+    /// Select all text
+    pub fn select_all(&mut self) {
+        self.move_to_start();
+        self.cursor.start_selection();
+        self.move_to_end();
+    }
+
+    /// Get selected text
+    pub fn get_selected_text(&self) -> Option<String> {
+        let (start, end) = self.cursor.selection_range()?;
+
+        let start_idx = self.buffer.line_col_to_char(start.line, start.column)?;
+        let end_idx = self.buffer.line_col_to_char(end.line, end.column)?;
+
+        Some(self.buffer.rope().slice(start_idx..end_idx).to_string())
+    }
+
+    /// Delete selected text
+    pub fn delete_selection(&mut self) -> bool {
+        if let Some((start, end)) = self.cursor.selection_range() {
+            if let (Some(start_idx), Some(end_idx)) = (
+                self.buffer.line_col_to_char(start.line, start.column),
+                self.buffer.line_col_to_char(end.line, end.column),
+            ) {
+                self.buffer.remove(start_idx, end_idx);
+                self.cursor.position = start;
+                self.cursor.clear_selection();
+                self.viewport.ensure_visible(self.cursor.position.line);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Replace selection with text (or just insert if no selection)
+    pub fn replace_selection(&mut self, text: &str) {
+        self.delete_selection();
+        self.insert_str(text);
+    }
+
     // === File Operations ===
 
     /// Save the file
@@ -358,5 +453,60 @@ mod tests {
 
         assert_eq!(editor.cursor.position.line, 3);
         assert!(editor.viewport.top_line > 0);
+    }
+
+    #[test]
+    fn test_selection_get_text() {
+        let mut editor = Editor::with_content("Hello World");
+        editor.cursor.move_to(0, 0);
+        editor.cursor.start_selection();
+        editor.cursor.move_to(0, 5);
+
+        let selected = editor.get_selected_text();
+        assert_eq!(selected, Some("Hello".to_string()));
+    }
+
+    #[test]
+    fn test_selection_multiline() {
+        let mut editor = Editor::with_content("Hello\nWorld\nTest");
+        editor.cursor.move_to(0, 3); // "Hel|lo"
+        editor.cursor.start_selection();
+        editor.cursor.move_to(1, 3); // "Wor|ld"
+
+        let selected = editor.get_selected_text();
+        assert_eq!(selected, Some("lo\nWor".to_string()));
+    }
+
+    #[test]
+    fn test_delete_selection() {
+        let mut editor = Editor::with_content("Hello World");
+        editor.cursor.move_to(0, 0);
+        editor.cursor.start_selection();
+        editor.cursor.move_to(0, 6); // Select "Hello "
+
+        let deleted = editor.delete_selection();
+        assert!(deleted);
+        assert_eq!(editor.buffer.text(), "World");
+        assert_eq!(editor.cursor.position, Position::new(0, 0));
+    }
+
+    #[test]
+    fn test_replace_selection() {
+        let mut editor = Editor::with_content("Hello World");
+        editor.cursor.move_to(0, 6);
+        editor.cursor.start_selection();
+        editor.cursor.move_to(0, 11); // Select "World"
+
+        editor.replace_selection("Rust");
+        assert_eq!(editor.buffer.text(), "Hello Rust");
+    }
+
+    #[test]
+    fn test_select_all() {
+        let mut editor = Editor::with_content("Hello\nWorld");
+        editor.select_all();
+
+        let selected = editor.get_selected_text();
+        assert_eq!(selected, Some("Hello\nWorld".to_string()));
     }
 }

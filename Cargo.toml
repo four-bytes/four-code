@@ -4,6 +4,7 @@ members = [
     "crates/four-code",
     "crates/four-code-core",
     "crates/four-code-tui",
+    "crates/four-code-clipboard",
 ]
 
 [workspace.package]
@@ -75,3 +76,4 @@ regex = "1.12"
 # Internal crates
 four-code-core = { path = "crates/four-code-core" }
 four-code-tui = { path = "crates/four-code-tui" }
+four-code-clipboard = { path = "crates/four-code-clipboard" }

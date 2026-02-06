@@ -181,46 +181,148 @@ impl App {
                 }
             },
 
+            // === Clipboard (Ctrl+C/X/V) ===
+
+            // Copy
+            (KeyModifiers::CONTROL, KeyCode::Char('c')) => {
+                if let Some(text) = self.editor.get_selected_text() {
+                    let len = text.len();
+                    match four_code_clipboard::copy(&text) {
+                        Ok(()) => self.status = format!("Copied {len} chars"),
+                        Err(e) => self.status = format!("Copy failed: {e}"),
+                    }
+                }
+            }
+
+            // Cut
+            (KeyModifiers::CONTROL, KeyCode::Char('x')) => {
+                if let Some(text) = self.editor.get_selected_text() {
+                    let len = text.len();
+                    match four_code_clipboard::cut(&text) {
+                        Ok(()) => {
+                            self.editor.delete_selection();
+                            self.status = format!("Cut {len} chars");
+                        }
+                        Err(e) => self.status = format!("Cut failed: {e}"),
+                    }
+                }
+            }
+
+            // Paste
+            (KeyModifiers::CONTROL, KeyCode::Char('v')) => match four_code_clipboard::paste() {
+                Ok(text) => {
+                    let len = text.len();
+                    self.editor.replace_selection(&text);
+                    self.status = format!("Pasted {len} chars");
+                }
+                Err(e) => self.status = format!("Paste failed: {e}"),
+            },
+
+            // Select All
+            (KeyModifiers::CONTROL, KeyCode::Char('a')) => {
+                self.editor.select_all();
+                self.status = String::from("Selected all");
+            }
+
             // === Cursor Movement ===
 
-            // Arrow keys
-            (KeyModifiers::NONE, KeyCode::Up) => self.editor.move_up(),
-            (KeyModifiers::NONE, KeyCode::Down) => self.editor.move_down(),
-            (KeyModifiers::NONE, KeyCode::Left) => self.editor.move_left(),
-            (KeyModifiers::NONE, KeyCode::Right) => self.editor.move_right(),
+            // Arrow keys (clear selection)
+            (KeyModifiers::NONE, KeyCode::Up) => {
+                self.editor.clear_selection();
+                self.editor.move_up();
+            }
+            (KeyModifiers::NONE, KeyCode::Down) => {
+                self.editor.clear_selection();
+                self.editor.move_down();
+            }
+            (KeyModifiers::NONE, KeyCode::Left) => {
+                self.editor.clear_selection();
+                self.editor.move_left();
+            }
+            (KeyModifiers::NONE, KeyCode::Right) => {
+                self.editor.clear_selection();
+                self.editor.move_right();
+            }
+
+            // Shift+Arrow (extend selection)
+            (KeyModifiers::SHIFT, KeyCode::Up) => self.editor.move_up_select(),
+            (KeyModifiers::SHIFT, KeyCode::Down) => self.editor.move_down_select(),
+            (KeyModifiers::SHIFT, KeyCode::Left) => self.editor.move_left_select(),
+            (KeyModifiers::SHIFT, KeyCode::Right) => self.editor.move_right_select(),
 
             // Home/End
-            (KeyModifiers::NONE, KeyCode::Home) => self.editor.move_to_line_start(),
-            (KeyModifiers::NONE, KeyCode::End) => self.editor.move_to_line_end(),
+            (KeyModifiers::NONE, KeyCode::Home) => {
+                self.editor.clear_selection();
+                self.editor.move_to_line_start();
+            }
+            (KeyModifiers::NONE, KeyCode::End) => {
+                self.editor.clear_selection();
+                self.editor.move_to_line_end();
+            }
+
+            // Shift+Home/End (select to line start/end)
+            (KeyModifiers::SHIFT, KeyCode::Home) => self.editor.move_to_line_start_select(),
+            (KeyModifiers::SHIFT, KeyCode::End) => self.editor.move_to_line_end_select(),
 
             // Ctrl+Home/End - document start/end
-            (KeyModifiers::CONTROL, KeyCode::Home) => self.editor.move_to_start(),
-            (KeyModifiers::CONTROL, KeyCode::End) => self.editor.move_to_end(),
+            (KeyModifiers::CONTROL, KeyCode::Home) => {
+                self.editor.clear_selection();
+                self.editor.move_to_start();
+            }
+            (KeyModifiers::CONTROL, KeyCode::End) => {
+                self.editor.clear_selection();
+                self.editor.move_to_end();
+            }
+
+            // Ctrl+Shift+Home/End (select to document start/end)
+            (mods, KeyCode::Home) if mods == KeyModifiers::CONTROL | KeyModifiers::SHIFT => {
+                self.editor.move_to_start_select();
+            }
+            (mods, KeyCode::End) if mods == KeyModifiers::CONTROL | KeyModifiers::SHIFT => {
+                self.editor.move_to_end_select();
+            }
 
             // Page Up/Down
-            (KeyModifiers::NONE, KeyCode::PageUp) => self.editor.page_up(),
-            (KeyModifiers::NONE, KeyCode::PageDown) => self.editor.page_down(),
+            (KeyModifiers::NONE, KeyCode::PageUp) => {
+                self.editor.clear_selection();
+                self.editor.page_up();
+            }
+            (KeyModifiers::NONE, KeyCode::PageDown) => {
+                self.editor.clear_selection();
+                self.editor.page_down();
+            }
 
             // === Text Editing ===
 
-            // Enter
-            (KeyModifiers::NONE, KeyCode::Enter) => self.editor.insert_newline(),
+            // Enter (delete selection first if any)
+            (KeyModifiers::NONE, KeyCode::Enter) => {
+                self.editor.delete_selection();
+                self.editor.insert_newline();
+            }
 
-            // Backspace
-            (KeyModifiers::NONE, KeyCode::Backspace) => self.editor.backspace(),
+            // Backspace (delete selection or char before)
+            (KeyModifiers::NONE, KeyCode::Backspace) => {
+                if !self.editor.delete_selection() {
+                    self.editor.backspace();
+                }
+            }
 
-            // Delete
-            (KeyModifiers::NONE, KeyCode::Delete) => self.editor.delete(),
+            // Delete (delete selection or char at cursor)
+            (KeyModifiers::NONE, KeyCode::Delete) => {
+                if !self.editor.delete_selection() {
+                    self.editor.delete();
+                }
+            }
 
             // Tab
             (KeyModifiers::NONE, KeyCode::Tab) => {
-                // Insert 4 spaces (configurable later)
+                self.editor.delete_selection();
                 self.editor.insert_str("    ");
             }
 
-            // Regular character input
+            // Regular character input (replace selection)
             (KeyModifiers::NONE | KeyModifiers::SHIFT, KeyCode::Char(c)) => {
-                self.editor.insert_char(c);
+                self.editor.replace_selection(&c.to_string());
             }
 
             _ => {}

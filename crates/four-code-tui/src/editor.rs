@@ -4,7 +4,7 @@ use four_code_core::Editor;
 use ratatui::{
     buffer::Buffer as RatatuiBuffer,
     layout::Rect,
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     widgets::Widget,
 };
 
@@ -25,6 +25,30 @@ impl<'a> EditorWidget<'a> {
             line_number_width,
         }
     }
+
+    /// Check if a position is within selection
+    fn is_selected(&self, line: usize, col: usize) -> bool {
+        if let Some((start, end)) = self.editor.cursor.selection_range() {
+            if line < start.line || line > end.line {
+                return false;
+            }
+            if line == start.line && line == end.line {
+                // Selection on single line
+                col >= start.column && col < end.column
+            } else if line == start.line {
+                // First line of multi-line selection
+                col >= start.column
+            } else if line == end.line {
+                // Last line of multi-line selection
+                col < end.column
+            } else {
+                // Middle line of multi-line selection
+                true
+            }
+        } else {
+            false
+        }
+    }
 }
 
 impl Widget for EditorWidget<'_> {
@@ -32,6 +56,10 @@ impl Widget for EditorWidget<'_> {
         let line_num_style = Style::default().fg(Color::DarkGray);
         let current_line_num_style = Style::default().fg(Color::Yellow);
         let text_style = Style::default().fg(Color::White);
+        let selection_style = Style::default()
+            .bg(Color::Blue)
+            .fg(Color::White)
+            .add_modifier(Modifier::BOLD);
 
         let viewport = &self.editor.viewport;
         let cursor_line = self.editor.cursor.position.line;
@@ -53,19 +81,41 @@ impl Widget for EditorWidget<'_> {
                 );
                 buf.set_string(area.x, y, &line_num, num_style);
 
-                // Line content
+                // Line content with selection highlighting
                 let content_x = area.x + self.line_number_width as u16;
                 let available_width =
                     area.width.saturating_sub(self.line_number_width as u16) as usize;
 
                 let line_str = line.to_string();
-                let display_str: String = line_str
+                for (col, ch) in line_str
                     .chars()
                     .take(available_width)
                     .filter(|c| *c != '\n' && *c != '\r')
-                    .collect();
+                    .enumerate()
+                {
+                    let style = if self.is_selected(buffer_line, col) {
+                        selection_style
+                    } else {
+                        text_style
+                    };
+                    let x = content_x + col as u16;
+                    if x < area.x + area.width {
+                        buf.set_string(x, y, ch.to_string(), style);
+                    }
+                }
 
-                buf.set_string(content_x, y, &display_str, text_style);
+                // If selection extends beyond line content, show it
+                let line_len = line_str
+                    .chars()
+                    .filter(|c| *c != '\n' && *c != '\r')
+                    .count();
+                if self.is_selected(buffer_line, line_len) && line_len < available_width {
+                    // Selection includes the newline - show a space with selection bg
+                    let x = content_x + line_len as u16;
+                    if x < area.x + area.width {
+                        buf.set_string(x, y, " ", selection_style);
+                    }
+                }
             } else {
                 // Empty line indicator (beyond end of file)
                 let tilde = format!("{:>width$}~", "", width = self.line_number_width - 1);

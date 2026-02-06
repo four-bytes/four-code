@@ -1,0 +1,11 @@
+[package]
+name = "four-code-clipboard"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Cross-platform clipboard for four-code with WSL support"
+
+[dependencies]
+arboard.workspace = true
+thiserror.workspace = true
