@@ -1,0 +1,14 @@
+[package]
+name = "four-code-tui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Terminal UI for four-code"
+
+[dependencies]
+four-code-core.workspace = true
+
+ratatui.workspace = true
+crossterm.workspace = true
+thiserror.workspace = true

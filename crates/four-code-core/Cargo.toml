@@ -1,0 +1,11 @@
+[package]
+name = "four-code-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Core editor functionality for four-code"
+
+[dependencies]
+ropey.workspace = true
+thiserror.workspace = true

@@ -1,0 +1,77 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/four-code",
+    "crates/four-code-core",
+    "crates/four-code-tui",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Four Bytes <info@four-bytes.de>"]
+license = "MIT"
+repository = "https://github.com/four-bytes/four-code"
+
+[workspace.dependencies]
+# Core
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Async
+tokio = { version = "1.0", features = ["full"] }
+
+# TUI (same versions as termide for compatibility)
+ratatui = "0.30"
+crossterm = "0.28"
+
+# Editor
+ropey = "1.6"
+unicode-width = "0.2"
+unicode-segmentation = "1.11"
+
+# Syntax highlighting
+tree-sitter = "0.24"
+tree-sitter-highlight = "0.24"
+tree-sitter-php = "0.24"
+tree-sitter-javascript = "0.23"
+tree-sitter-typescript = "0.23"
+tree-sitter-json = "0.23"
+tree-sitter-yaml = "0.7"
+tree-sitter-md = "0.3"
+tree-sitter-html = "0.23"
+tree-sitter-css = "0.23"
+tree-sitter-toml-ng = "0.7"
+tree-sitter-bash = "0.23"
+tree-sitter-rust = "0.23"
+
+# Config
+toml = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs = "6.0"
+
+# Clipboard
+arboard = "3.4"
+
+# Git
+similar = "2.7"
+
+# File watching
+notify = { version = "6.1", default-features = false, features = ["macos_kqueue"] }
+notify-debouncer-mini = "0.4"
+ignore = "0.4"
+
+# AI/HTTP
+reqwest = { version = "0.12", features = ["json"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Regex
+regex = "1.12"
+
+# Internal crates
+four-code-core = { path = "crates/four-code-core" }
+four-code-tui = { path = "crates/four-code-tui" }

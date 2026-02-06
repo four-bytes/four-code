@@ -1,0 +1,22 @@
+[package]
+name = "four-code"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Minimalist terminal IDE for PHP developers with AI integration"
+
+[[bin]]
+name = "four-code"
+path = "src/main.rs"
+
+[dependencies]
+four-code-core.workspace = true
+four-code-tui.workspace = true
+
+anyhow.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+crossterm.workspace = true
+ratatui.workspace = true
