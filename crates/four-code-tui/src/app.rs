@@ -5,9 +5,9 @@ use four_code_core::Editor;
 use four_code_highlight::{global_highlighter, HighlightCache};
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    widgets::{Block, Borders, Paragraph},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Clear, Paragraph},
     Frame, Terminal,
 };
 use std::io;
@@ -41,6 +41,9 @@ pub struct App {
 
     /// Last terminal size
     last_size: (u16, u16),
+
+    /// Show help popup
+    show_help: bool,
 }
 
 impl App {
@@ -61,8 +64,9 @@ impl App {
             ),
             highlight_cache: HighlightCache::new(global_highlighter()),
             should_quit: false,
-            status: String::from("four-code v0.1.0 | Ctrl+Q: Quit | Ctrl+S: Save"),
+            status: String::from("four-code v0.1.0 | F1: Help | Ctrl+Q: Quit"),
             last_size: (0, 0),
+            show_help: false,
         }
     }
 
@@ -87,6 +91,7 @@ impl App {
             should_quit: false,
             status,
             last_size: (0, 0),
+            show_help: false,
         })
     }
 
@@ -175,6 +180,79 @@ impl App {
         let status =
             Paragraph::new(pos_info).style(Style::default().fg(Color::White).bg(Color::DarkGray));
         frame.render_widget(status, chunks[1]);
+
+        // Help popup
+        if self.show_help {
+            self.render_help(frame, size);
+        }
+    }
+
+    /// Render help popup
+    fn render_help(&self, frame: &mut Frame, size: Rect) {
+        let help_text = "\
+  Keyboard Shortcuts
+  ------------------
+
+  Navigation
+    Arrows        Move cursor
+    Home/End      Line start/end
+    Ctrl+Home/End Document start/end
+    Page Up/Down  Scroll page
+
+  Selection
+    Shift+Arrows  Select text
+    Shift+Home/End Select to line start/end
+    Ctrl+A        Select all
+
+  Editing
+    Backspace     Delete before cursor
+    Delete        Delete at cursor
+    Tab           Insert 4 spaces
+    Enter         New line
+
+  Clipboard
+    Ctrl+C        Copy
+    Ctrl+X        Cut
+    Ctrl+V        Paste
+
+  File
+    Ctrl+S        Save
+
+  Application
+    F1            Toggle this help
+    Ctrl+Q        Quit
+
+  ------------------
+  Press F1 or Esc to close";
+
+        // Calculate popup size and position (centered)
+        let popup_width = 40u16;
+        let popup_height = 35u16;
+        let x = size.width.saturating_sub(popup_width) / 2;
+        let y = size.height.saturating_sub(popup_height) / 2;
+        let area = Rect::new(
+            x,
+            y,
+            popup_width.min(size.width),
+            popup_height.min(size.height),
+        );
+
+        // Clear the area behind the popup
+        frame.render_widget(Clear, area);
+
+        let help_block = Block::default()
+            .title(" Help ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow))
+            .style(Style::default().bg(Color::Rgb(40, 44, 52)));
+
+        let help_paragraph = Paragraph::new(help_text).block(help_block).style(
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::empty()),
+        );
+
+        frame.render_widget(help_paragraph, area);
     }
 
     /// Handle input events
@@ -193,8 +271,22 @@ impl App {
         // Track if we need to invalidate highlighting
         let line_before = self.editor.cursor.position.line;
 
+        // If help is open, only handle F1/Esc to close it
+        if self.show_help {
+            match key.code {
+                KeyCode::F(1) | KeyCode::Esc => self.show_help = false,
+                _ => {}
+            }
+            return;
+        }
+
         match (key.modifiers, key.code) {
             // === Application Commands ===
+
+            // Help
+            (KeyModifiers::NONE, KeyCode::F(1)) => {
+                self.show_help = true;
+            }
 
             // Quit
             (KeyModifiers::CONTROL, KeyCode::Char('q')) => {
@@ -207,7 +299,8 @@ impl App {
                     if let Some(path) = self.editor.path() {
                         self.status = format!("Saved: {}", path.display());
                     } else {
-                        self.status = String::from("No file path. Use :w <path> to save.");
+                        self.status =
+                            String::from("No file path. Open a file with: four-code <file>");
                     }
                 }
                 Err(e) => {

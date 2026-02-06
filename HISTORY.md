@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-02-06 - Help Popup (F1)
+- Added F1 help popup with all keyboard shortcuts
+- Popup shows navigation, selection, editing, clipboard, and file commands
+- Press F1 or Esc to close the popup
+- Fixed misleading ":w" message (there is no Vim command mode)
+
 ### 2026-02-06 - Syntax Highlighting with tree-sitter
 - Added four-code-highlight crate with tree-sitter integration
 - Upgraded tree-sitter from 0.24 to 0.26 (supports language version 15)
