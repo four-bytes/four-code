@@ -1,0 +1,22 @@
+# Cargo configuration
+
+[alias]
+# Quick commands
+c = "check"
+b = "build"
+t = "test"
+r = "run"
+
+# Lint everything (like PHPStan max level)
+lint = "clippy --all-targets --all-features -- -D warnings"
+
+# Format check (CI)
+fmt-check = "fmt --all -- --check"
+
+[build]
+# Faster incremental builds
+incremental = true
+
+# Mold linker (optional, faster linking - install with: apt install mold)
+# [target.x86_64-unknown-linux-gnu]
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]

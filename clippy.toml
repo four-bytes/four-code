@@ -1,0 +1,14 @@
+# Clippy configuration (like PHPStan level)
+# https://doc.rust-lang.org/clippy/
+
+# Cognitive complexity threshold (like cyclomatic complexity)
+cognitive-complexity-threshold = 25
+
+# Max lines per function
+too-many-lines-threshold = 100
+
+# Max function arguments
+too-many-arguments-threshold = 7
+
+# Disallow large types on the stack
+large-error-threshold = 128

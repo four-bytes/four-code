@@ -1,0 +1,19 @@
+# Rust formatting configuration (like PSR-12 for PHP)
+# https://rust-lang.github.io/rustfmt/
+
+edition = "2021"
+max_width = 100
+tab_spaces = 4
+newline_style = "Unix"
+use_small_heuristics = "Default"
+
+# Imports (stable options only)
+reorder_imports = true
+
+# The following require nightly rustfmt:
+# imports_granularity = "Module"
+# group_imports = "StdExternalCrate"
+# wrap_comments = true
+# format_code_in_doc_comments = true
+# normalize_comments = true
+# fn_params_layout = "Tall"

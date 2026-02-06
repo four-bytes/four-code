@@ -39,8 +39,8 @@ impl Buffer {
         }
     }
 
-    /// Create a buffer from a string
-    pub fn from_str(text: &str) -> Self {
+    /// Create a buffer with initial content
+    pub fn with_content(text: &str) -> Self {
         Self {
             rope: Rope::from_str(text),
             path: None,
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_from_str() {
-        let buffer = Buffer::from_str("Hello\nWorld");
+        let buffer = Buffer::with_content("Hello\nWorld");
         assert_eq!(buffer.len_lines(), 2);
         assert_eq!(buffer.line(0).unwrap().to_string(), "Hello\n");
         assert_eq!(buffer.line(1).unwrap().to_string(), "World");
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        let mut buffer = Buffer::from_str("Hello World");
+        let mut buffer = Buffer::with_content("Hello World");
         buffer.insert(5, ",");
         assert_eq!(buffer.text(), "Hello, World");
         assert!(buffer.is_modified());
@@ -207,14 +207,14 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut buffer = Buffer::from_str("Hello, World");
+        let mut buffer = Buffer::with_content("Hello, World");
         buffer.remove(5, 7);
         assert_eq!(buffer.text(), "HelloWorld");
     }
 
     #[test]
     fn test_line_col_conversion() {
-        let buffer = Buffer::from_str("Hello\nWorld\nTest");
+        let buffer = Buffer::with_content("Hello\nWorld\nTest");
 
         assert_eq!(buffer.line_col_to_char(0, 0), Some(0));
         assert_eq!(buffer.line_col_to_char(1, 0), Some(6));
